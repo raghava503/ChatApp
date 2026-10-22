@@ -3,10 +3,14 @@ using ChatApp.Data;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddSignalR();
-builder.Services.AddDbContext<ChatDbContext>(o => o.UseSqlite("Data Source=chat.db"));
-builder.Services.AddSingleton<PresenceTracker>();
+var cs = builder.Configuration.GetConnectionString("Chat") ?? "Data Source=chat.db";
+builder.Services.AddDbContext<ChatDbContext>(o => o.UseSqlite(cs));builder.Services.AddSingleton<PresenceTracker>();
 
-var app = builder.Build();
+var app = builder.Build();using (var scope = app.Services.CreateScope())
+{
+    scope.ServiceProvider.GetRequiredService<ChatDbContext>().Database.Migrate();
+}
+
 app.UseDefaultFiles();
 app.UseStaticFiles();
 app.MapHub<ChatHub>("/chat");
