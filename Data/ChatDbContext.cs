@@ -15,11 +15,15 @@ using ChatApp.Data;
 
 
 namespace ChatApp.Data;
-
 public class ChatDbContext(DbContextOptions<ChatDbContext> options) : DbContext(options)
 {
     public DbSet<Message> Messages => Set<Message>();
-    //public DbSet<UserIn> User => Set<User>();
-    protected override void OnModelCreating(ModelBuilder b) =>
+    public DbSet<AppUser> Users => Set<AppUser>();
+
+    protected override void OnModelCreating(ModelBuilder b)
+    {
         b.Entity<Message>().HasIndex(m => new { m.Room, m.SentAt });
+        b.Entity<AppUser>().Property(u => u.Username).UseCollation("NOCASE");
+        b.Entity<AppUser>().HasIndex(u => u.Username).IsUnique();
+    }
 }

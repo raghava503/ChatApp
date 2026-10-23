@@ -89,7 +89,7 @@
   .field { margin-bottom: 1.1rem; }
   .field label { display: block; font-weight: 600; margin-bottom: .35rem; }
   .row { display: flex; gap: .5rem; }
-  input[type=text] {
+  input[type=text], input[type=password] {
     width: 100%;
     padding: .7rem .85rem;
     border: 2px solid var(--ink);
@@ -245,14 +245,15 @@
   </section>
 
   <section class="card" aria-labelledby="joinTitle">
-    <h2 id="joinTitle">Join a room</h2>
+    <h2 id="joinTitle">Log in or create an account</h2>
     <form id="joinForm" autocomplete="off">
       <div class="field">
-        <label for="nick">Your nickname</label>
-        <div class="row">
-          <input id="nick" type="text" maxlength="20" required>
-          <button type="button" id="dice" class="btn small" title="Pick a random nickname">Surprise me</button>
-        </div>
+        <label for="nick">Username</label>
+        <input id="nick" type="text" maxlength="20" autocomplete="username" required>
+      </div>
+      <div class="field">
+        <label for="pass">Password</label>
+        <input id="pass" type="password" minlength="8" maxlength="72" autocomplete="current-password" required>
       </div>
       <div class="field">
         <label for="roomInput">Room</label>
@@ -263,11 +264,12 @@
           <button type="button" class="chip" data-room="dev-talk">dev-talk</button>
         </div>
       </div>
-      <button id="joinBtn" class="btn primary" type="submit">Join room</button>
+      <button id="joinBtn" class="btn primary" type="submit" value="login">Log in and join</button>
+      <button id="registerBtn" class="btn" type="submit" value="register" style="width:100%;margin-top:.7rem">Create account and join</button>
       <p id="joinError" class="error" role="alert"></p>
     </form>
     <p class="fine">
-      Please don&rsquo;t share passwords or personal details. Messages are saved, and anyone who joins the same room can read them.
+      This is a demo. Use a throwaway password you don&rsquo;t use anywhere else. Messages are saved, and anyone in the same room can read them.
       The server runs on a free tier, so the first connection can take up to 30 seconds.
     </p>
   </section>
@@ -310,7 +312,7 @@
 (() => {
   const $ = id => document.getElementById(id);
   const MAX = 500;
-  let me = '', room = '', prevUsers = null, lastTyping = 0, toastTimer;
+  let me = '', room = '', token = '', prevUsers = null, lastTyping = 0, toastTimer;
   const seen = new Set();
   const typers = new Map();
 
@@ -328,8 +330,6 @@
     return el;
   }
 
-  $('nick').value = randomName();
-  $('dice').onclick = () => { $('nick').value = randomName(); };
   document.querySelectorAll('.chip').forEach(chip => {
     chip.onclick = () => { $('roomInput').value = chip.dataset.room; syncChips(); };
   });
@@ -344,7 +344,7 @@
     return;
   }
 
-  const conn = new signalR.HubConnectionBuilder().withUrl('/chat').withAutomaticReconnect().build();
+  const conn = new signalR.HubConnectionBuilder().withUrl('/chat', { accessTokenFactory: () => token }).withAutomaticReconnect().build();
 
   function setStatus(state, text) {
     $('status').dataset.state = state;
@@ -435,7 +435,7 @@
   });
   conn.onreconnecting(() => setStatus('reconnecting', 'Reconnecting'));
   conn.onreconnected(async () => {
-    try { await conn.invoke('JoinRoom', room, me); setStatus('online', 'Connected'); }
+    try { await conn.invoke('JoinRoom', room); setStatus('online', 'Connected'); }
     catch { setStatus('offline', 'Disconnected'); }
   });
   conn.onclose(() => {
@@ -449,21 +449,37 @@
   $('joinForm').addEventListener('submit', async e => {
     e.preventDefault();
     const name = $('nick').value.trim();
+    const password = $('pass').value;
+    const mode = e.submitter && e.submitter.value === 'register' ? 'register' : 'login';
     const r = $('roomInput').value.trim().toLowerCase().replace(/[^a-z0-9_-]/g, '');
     $('joinError').textContent = '';
-    if (!name || !r) { $('joinError').textContent = 'Enter a nickname and a room name (letters, numbers, - and _).'; return; }
+    if (!name || !password || !r) { $('joinError').textContent = 'Enter a username, a password and a room name (letters, numbers, - and _).'; return; }
 
-    const btn = $('joinBtn');
-    btn.disabled = true; btn.textContent = 'Connecting...';
+    const btn = e.submitter || $('joinBtn');
+    const label = btn.textContent;
+    $('joinBtn').disabled = $('registerBtn').disabled = true;
+    btn.textContent = 'Connecting...';
     try {
+      const auth = await fetch(`/api/auth/${mode}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: name, password })
+      });
+      const body = await auth.json().catch(() => ({}));
+      if (!auth.ok) { const err = new Error(body.error || 'Something went wrong. Try again.'); err.shown = true; throw err; }
+      token = body.token; me = body.username;
+      $('pass').value = '';
+
       if (conn.state === signalR.HubConnectionState.Disconnected) await conn.start();
       seen.clear(); typers.clear(); prevUsers = null;
       $('log').replaceChildren(makeEmpty());
-      const res = await fetch(`/api/rooms/${encodeURIComponent(r)}/messages`);
+      const res = await fetch(`/api/rooms/${encodeURIComponent(r)}/messages`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
       if (!res.ok) throw new Error('history');
-      me = name; room = r;
+      room = r;
       (await res.json()).forEach(addMessage);
-      await conn.invoke('JoinRoom', room, me);
+      await conn.invoke('JoinRoom', room);
 
       $('roomTitle').textContent = '#' + room;
       setStatus('online', 'Connected');
@@ -472,11 +488,14 @@
       $('chat').hidden = false;
       $('log').scrollTop = $('log').scrollHeight;
       $('msgInput').focus();
-    } catch {
-      $('joinError').textContent = 'Could not connect. The server may be waking up, so try again in a few seconds.';
+    } catch (err) {
+      $('joinError').textContent = err.shown ? err.message
+        : 'Could not connect. The server may be waking up, so try again in a few seconds.';
+      token = '';
       try { await conn.stop(); } catch {}
     } finally {
-      btn.disabled = false; btn.textContent = 'Join room';
+      $('joinBtn').disabled = $('registerBtn').disabled = false;
+      btn.textContent = label;
     }
   });
 
@@ -488,6 +507,7 @@
   }
 
   $('leaveBtn').onclick = async () => {
+    token = '';
     try { await conn.stop(); } catch {}
     $('chat').hidden = true;
     $('join').hidden = false;
@@ -502,7 +522,7 @@
     if (!text) return;
     $('msgInput').value = '';
     updateCounter();
-    try { await conn.invoke('SendMessage', room, me, text); }
+    try { await conn.invoke('SendMessage', room, text); }
     catch { $('msgInput').value = text; updateCounter(); toast('Message not sent. Check your connection and try again.'); }
   });
 
@@ -515,7 +535,7 @@
     updateCounter();
     if (Date.now() - lastTyping > 1000) {
       lastTyping = Date.now();
-      conn.invoke('Typing', room, me).catch(() => {});
+      conn.invoke('Typing', room).catch(() => {});
     }
   });
 })();
