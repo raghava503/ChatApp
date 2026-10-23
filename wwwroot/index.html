@@ -1,76 +1,524 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <meta charset="utf-8"><title>Chat</title>
-  <style>
-    body { font-family: sans-serif; max-width: 700px; margin: 2rem auto; }
-    #messages { border: 1px solid #ccc; height: 320px; overflow-y: auto; padding: .5rem; }
-    #online, #typing { color: #666; font-size: .9rem; min-height: 1.2rem; }
-  </style>
-  <h2>Real-Time Chat Demo</h2>
-<p>A portfolio project built with ASP.NET Core and SignalR. Pick any nickname and a room name to try it.
-   Please don't enter passwords or personal information.</p>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PingRoom - real-time chat demo</title>
+<meta name="description" content="PingRoom is a portfolio project: a real-time chat app built with ASP.NET Core, SignalR and EF Core.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><circle cx=%2250%22 cy=%2250%22 r=%2236%22 fill=%22%23ffe14d%22 stroke=%22%2310153a%22 stroke-width=%228%22/></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Instrument+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --blue: #2b3cf5;
+    --ink: #10153a;
+    --paper: #f2f4ff;
+    --lemon: #ffe14d;
+    --coral: #ff6a55;
+    --mint: #2fd4a0;
+    --white: #ffffff;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; }
+  body {
+    font-family: 'Instrument Sans', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+    color: var(--ink);
+    background: var(--blue);
+    -webkit-font-smoothing: antialiased;
+  }
+  h1, h2, .display { font-family: 'Bricolage Grotesque', 'Instrument Sans', system-ui, sans-serif; }
+  [hidden] { display: none !important; }
+  button, input { font: inherit; color: inherit; }
+  :focus-visible { outline: 3px solid var(--coral); outline-offset: 2px; }
+
+  /* ---------- Join screen ---------- */
+  .join {
+    min-height: 100dvh;
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: clamp(1.5rem, 5vw, 4rem);
+    display: grid;
+    grid-template-columns: 1.1fr .9fr;
+    gap: clamp(2rem, 5vw, 4rem);
+    align-items: center;
+    color: var(--white);
+  }
+  .wordmark {
+    font-size: clamp(3.6rem, 12vw, 8.5rem);
+    line-height: .9;
+    font-weight: 800;
+    letter-spacing: -.045em;
+    margin: 0 0 1.5rem;
+  }
+  .ping {
+    display: inline-block;
+    position: relative;
+    width: .26em; height: .26em;
+    margin-left: .06em;
+    border-radius: 50%;
+    background: var(--lemon);
+    border: .03em solid var(--ink);
+  }
+  .ping::before, .ping::after {
+    content: '';
+    position: absolute; inset: -.03em;
+    border-radius: 50%;
+    border: .04em solid var(--lemon);
+    opacity: 0;
+    animation: ring 2.6s ease-out 3;
+  }
+  .ping::after { animation-delay: .5s; }
+  @keyframes ring {
+    0% { transform: scale(1); opacity: .9; }
+    100% { transform: scale(4.2); opacity: 0; }
+  }
+  .lede { font-size: clamp(1.1rem, 2.2vw, 1.4rem); line-height: 1.45; max-width: 30rem; margin: 0 0 1.5rem; }
+  .about { font-size: .98rem; line-height: 1.55; max-width: 30rem; opacity: .92; }
+  .about a { color: var(--lemon); font-weight: 600; text-underline-offset: 3px; }
+
+  .card {
+    background: var(--white);
+    color: var(--ink);
+    border: 2px solid var(--ink);
+    border-radius: 18px;
+    box-shadow: 7px 7px 0 var(--ink);
+    padding: clamp(1.25rem, 3vw, 2rem);
+  }
+  .card h2 { margin: 0 0 1.1rem; font-size: 1.6rem; letter-spacing: -.02em; }
+  .field { margin-bottom: 1.1rem; }
+  .field label { display: block; font-weight: 600; margin-bottom: .35rem; }
+  .row { display: flex; gap: .5rem; }
+  input[type=text] {
+    width: 100%;
+    padding: .7rem .85rem;
+    border: 2px solid var(--ink);
+    border-radius: 12px;
+    background: var(--paper);
+  }
+  .btn {
+    cursor: pointer;
+    border: 2px solid var(--ink);
+    border-radius: 12px;
+    background: var(--white);
+    padding: .6rem .9rem;
+    font-weight: 600;
+    box-shadow: 3px 3px 0 var(--ink);
+    transition: transform .08s ease, box-shadow .08s ease;
+  }
+  .btn:hover { transform: translate(1px, 1px); box-shadow: 2px 2px 0 var(--ink); }
+  .btn:active { transform: translate(3px, 3px); box-shadow: 0 0 0 var(--ink); }
+  .btn:disabled { opacity: .6; cursor: wait; }
+  .btn.primary { background: var(--lemon); width: 100%; padding: .85rem 1rem; font-size: 1.05rem; }
+  .btn.small { padding: .55rem .7rem; white-space: nowrap; }
+  .chips { display: flex; flex-wrap: wrap; gap: .45rem; margin-top: .6rem; }
+  .chip {
+    cursor: pointer;
+    border: 2px solid var(--ink);
+    border-radius: 999px;
+    background: var(--white);
+    padding: .25rem .7rem;
+    font-size: .9rem;
+  }
+  .chip:hover, .chip[aria-pressed=true] { background: var(--lemon); }
+  .error { color: #b3261e; font-weight: 600; min-height: 1.3rem; margin: .6rem 0 0; }
+  .fine { font-size: .85rem; line-height: 1.45; margin: 1rem 0 0; color: #3b4170; }
+
+  /* ---------- Chat screen ---------- */
+  .chat {
+    height: 100dvh;
+    display: grid;
+    grid-template-columns: 280px minmax(0, 1fr);
+    background: var(--paper);
+  }
+  .side {
+    background: var(--blue);
+    color: var(--white);
+    padding: 1.25rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    min-height: 0;
+    border-right: 2px solid var(--ink);
+  }
+  .brand { font-size: 1.05rem; font-weight: 800; opacity: .85; }
+  .room-title { margin: 0; font-size: 1.9rem; font-weight: 800; letter-spacing: -.03em; overflow-wrap: anywhere; }
+  .status { display: inline-flex; align-items: center; gap: .45rem; font-size: .88rem; }
+  .status i { width: .65rem; height: .65rem; border-radius: 50%; background: var(--mint); }
+  .status[data-state=reconnecting] i { background: var(--lemon); }
+  .status[data-state=offline] i { background: var(--coral); }
+  .side h3 { margin: .5rem 0 0; font-size: .95rem; font-weight: 600; opacity: .9; }
+  .online { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: .55rem; overflow-y: auto; min-height: 0; flex: 1; }
+  .online li { display: flex; align-items: center; gap: .6rem; }
+  .avatar {
+    width: 2rem; height: 2rem; flex: none;
+    border-radius: 50%;
+    border: 2px solid var(--ink);
+    display: grid; place-items: center;
+    font-size: .85rem; font-weight: 700;
+    color: var(--ink);
+  }
+  .side .btn { color: var(--ink); }
+
+  .main { display: flex; flex-direction: column; min-height: 0; min-width: 0; }
+  .log {
+    flex: 1;
+    overflow-y: auto;
+    padding: 1.25rem clamp(1rem, 3vw, 2rem);
+    display: flex;
+    flex-direction: column;
+    gap: .9rem;
+  }
+  .empty { margin: auto; text-align: center; max-width: 18rem; line-height: 1.5; }
+  .empty strong { display: block; font-size: 1.3rem; margin-bottom: .3rem; }
+  .msg { display: flex; gap: .6rem; max-width: min(36rem, 88%); align-items: flex-end; }
+  .msg.mine { align-self: flex-end; flex-direction: row-reverse; }
+  .bubble {
+    background: var(--white);
+    border: 2px solid var(--ink);
+    border-radius: 16px 16px 16px 4px;
+    padding: .5rem .8rem .6rem;
+    box-shadow: 3px 3px 0 var(--ink);
+    min-width: 0;
+  }
+  .mine .bubble { background: var(--lemon); border-radius: 16px 16px 4px 16px; }
+  .meta { display: flex; gap: .5rem; align-items: baseline; font-size: .82rem; }
+  .meta time { opacity: .6; }
+  .bubble p { margin: .15rem 0 0; line-height: 1.4; white-space: pre-wrap; overflow-wrap: anywhere; }
+  .notice { align-self: center; font-size: .85rem; opacity: .65; }
+
+  .typing { height: 1.7rem; padding: 0 clamp(1rem, 3vw, 2rem); display: flex; align-items: center; gap: .5rem; font-size: .88rem; }
+  .dots { display: inline-flex; gap: 3px; }
+  .dots span { width: 6px; height: 6px; border-radius: 50%; background: var(--ink); animation: bob 1s ease-in-out infinite; }
+  .dots span:nth-child(2) { animation-delay: .15s; }
+  .dots span:nth-child(3) { animation-delay: .3s; }
+  @keyframes bob { 0%, 60%, 100% { transform: translateY(0); opacity: .4; } 30% { transform: translateY(-4px); opacity: 1; } }
+
+  .composer {
+    display: flex; gap: .6rem; align-items: center;
+    padding: .9rem clamp(1rem, 3vw, 2rem);
+    background: var(--white);
+    border-top: 2px solid var(--ink);
+  }
+  .composer .grow { position: relative; flex: 1; }
+  .counter { position: absolute; right: .8rem; top: 50%; transform: translateY(-50%); font-size: .8rem; color: var(--coral); font-weight: 600; pointer-events: none; }
+  .composer .btn { background: var(--lemon); padding: .7rem 1.2rem; }
+
+  .toast {
+    position: fixed; left: 50%; bottom: 5.5rem; transform: translateX(-50%);
+    background: var(--ink); color: var(--white);
+    padding: .65rem 1rem; border-radius: 12px; font-size: .92rem;
+    max-width: 90vw;
+  }
+
+  /* ---------- Small screens ---------- */
+  @media (max-width: 820px) {
+    .join { grid-template-columns: 1fr; align-content: start; gap: 2rem; }
+    .chat { grid-template-columns: 1fr; grid-template-rows: auto minmax(0, 1fr); }
+    .side { flex-direction: row; flex-wrap: wrap; align-items: center; gap: .5rem .9rem; padding: .8rem 1rem; border-right: 0; border-bottom: 2px solid var(--ink); }
+    .brand, .side h3 { display: none; }
+    .room-title { font-size: 1.3rem; }
+    .online { order: 5; width: 100%; flex: none; flex-direction: row; overflow-x: auto; overflow-y: hidden; padding-bottom: .2rem; }
+    .online li span.name { display: none; }
+    .side .btn { margin-left: auto; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .ping::before, .ping::after, .dots span { animation: none; }
+    .btn { transition: none; }
+  }
+</style>
 </head>
 <body>
-  <h2>Chat</h2>
-  <div>
-    <input id="user" placeholder="Your name">
-    <input id="room" placeholder="Room" value="general">
-    <button id="join">Join</button>
-  </div>
-  <div id="online"></div>
-  <div id="messages"></div>
-  <div id="typing"></div>
-  <input id="text" placeholder="Type a message" disabled>
 
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/8.0.7/signalr.min.js"></script>
-  <script>
-    const $ = id => document.getElementById(id);
-    let room, user, typingTimer, lastTyping = 0;
+<noscript>PingRoom needs JavaScript to run.</noscript>
 
-    const conn = new signalR.HubConnectionBuilder()
-      .withUrl("/chat").withAutomaticReconnect().build();
+<!-- ============ JOIN ============ -->
+<main id="join" class="join">
+  <section>
+    <h1 class="wordmark">PingRoom<span class="ping" aria-hidden="true"></span></h1>
+    <p class="lede">A chat room where messages, who&rsquo;s online and typing indicators update the instant they happen.</p>
+    <p class="about">
+      This is a portfolio project by Raghava, built with ASP.NET Core, SignalR and EF Core.
+      Open it in two windows, join the same room, and watch them talk to each other.
+      <a href="https://github.com/raghava503/ChatApp">See the source on GitHub</a>.
+    </p>
+  </section>
 
-    function addMessage(m) {
-      const div = document.createElement("div");
-      div.textContent = `[${new Date(m.sentAt).toLocaleTimeString()}] ${m.user}: ${m.text}`;
-      $("messages").appendChild(div);
-      $("messages").scrollTop = $("messages").scrollHeight;
+  <section class="card" aria-labelledby="joinTitle">
+    <h2 id="joinTitle">Join a room</h2>
+    <form id="joinForm" autocomplete="off">
+      <div class="field">
+        <label for="nick">Your nickname</label>
+        <div class="row">
+          <input id="nick" type="text" maxlength="20" required>
+          <button type="button" id="dice" class="btn small" title="Pick a random nickname">Surprise me</button>
+        </div>
+      </div>
+      <div class="field">
+        <label for="roomInput">Room</label>
+        <input id="roomInput" type="text" maxlength="24" value="general" required>
+        <div class="chips" role="group" aria-label="Suggested rooms">
+          <button type="button" class="chip" data-room="general">general</button>
+          <button type="button" class="chip" data-room="random">random</button>
+          <button type="button" class="chip" data-room="dev-talk">dev-talk</button>
+        </div>
+      </div>
+      <button id="joinBtn" class="btn primary" type="submit">Join room</button>
+      <p id="joinError" class="error" role="alert"></p>
+    </form>
+    <p class="fine">
+      Please don&rsquo;t share passwords or personal details. Messages are saved, and anyone who joins the same room can read them.
+      The server runs on a free tier, so the first connection can take up to 30 seconds.
+    </p>
+  </section>
+</main>
+
+<!-- ============ CHAT ============ -->
+<div id="chat" class="chat" hidden>
+  <aside class="side">
+    <div class="brand">PingRoom</div>
+    <h2 id="roomTitle" class="room-title"></h2>
+    <span id="status" class="status" data-state="online"><i></i><span id="statusText">Connected</span></span>
+    <h3>Online now (<span id="onlineCount">0</span>)</h3>
+    <ul id="onlineList" class="online"></ul>
+    <button id="leaveBtn" class="btn" type="button">Leave room</button>
+  </aside>
+
+  <section class="main">
+    <div id="log" class="log" role="log" aria-live="polite" aria-label="Messages">
+      <div id="empty" class="empty"><strong>No messages yet</strong>Say hi to start the conversation.</div>
+    </div>
+    <div id="typing" class="typing" hidden aria-live="polite">
+      <span class="dots" aria-hidden="true"><span></span><span></span><span></span></span>
+      <span id="typingText"></span>
+    </div>
+    <form id="composer" class="composer" autocomplete="off">
+      <div class="grow">
+        <label for="msgInput" style="position:absolute;left:-9999px">Message</label>
+        <input id="msgInput" type="text" maxlength="500" placeholder="Write a message">
+        <span id="counter" class="counter" hidden></span>
+      </div>
+      <button class="btn" type="submit">Send</button>
+    </form>
+  </section>
+</div>
+
+<div id="toast" class="toast" role="status" hidden></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/8.0.7/signalr.min.js"></script>
+<script>
+(() => {
+  const $ = id => document.getElementById(id);
+  const MAX = 500;
+  let me = '', room = '', prevUsers = null, lastTyping = 0, toastTimer;
+  const seen = new Set();
+  const typers = new Map();
+
+  const adjectives = ['Quick', 'Sunny', 'Brave', 'Calm', 'Witty', 'Lucky', 'Cosmic', 'Nimble'];
+  const animals = ['Otter', 'Falcon', 'Panda', 'Koala', 'Heron', 'Lynx', 'Gecko', 'Fox'];
+  const pick = list => list[Math.floor(Math.random() * list.length)];
+  const randomName = () => pick(adjectives) + pick(animals);
+
+  const hue = s => { let h = 0; for (const c of s) h = (h * 31 + c.charCodeAt(0)) % 360; return h; };
+  function avatar(name) {
+    const el = document.createElement('span');
+    el.className = 'avatar';
+    el.style.background = `hsl(${hue(name)} 85% 78%)`;
+    el.textContent = (name[0] || '?').toUpperCase();
+    return el;
+  }
+
+  $('nick').value = randomName();
+  $('dice').onclick = () => { $('nick').value = randomName(); };
+  document.querySelectorAll('.chip').forEach(chip => {
+    chip.onclick = () => { $('roomInput').value = chip.dataset.room; syncChips(); };
+  });
+  const syncChips = () => document.querySelectorAll('.chip').forEach(c =>
+    c.setAttribute('aria-pressed', String(c.dataset.room === $('roomInput').value.trim().toLowerCase())));
+  $('roomInput').addEventListener('input', syncChips);
+  syncChips();
+
+  if (typeof signalR === 'undefined') {
+    $('joinError').textContent = 'The chat library could not load. Turn off content blockers or check your connection, then reload the page.';
+    $('joinBtn').disabled = true;
+    return;
+  }
+
+  const conn = new signalR.HubConnectionBuilder().withUrl('/chat').withAutomaticReconnect().build();
+
+  function setStatus(state, text) {
+    $('status').dataset.state = state;
+    $('statusText').textContent = text;
+  }
+  function toast(text) {
+    const t = $('toast');
+    t.textContent = text; t.hidden = false;
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => t.hidden = true, 3500);
+  }
+
+  // ---------- rendering ----------
+  function appendToLog(node, forceScroll) {
+    const log = $('log');
+    const nearBottom = log.scrollHeight - log.scrollTop - log.clientHeight < 90;
+    log.appendChild(node);
+    if (nearBottom || forceScroll) log.scrollTop = log.scrollHeight;
+  }
+  function addMessage(m) {
+    if (seen.has(m.id)) return;
+    seen.add(m.id);
+    const empty = $('empty'); if (empty) empty.remove();
+
+    const mine = m.user === me;
+    const wrap = document.createElement('div');
+    wrap.className = 'msg ' + (mine ? 'mine' : 'theirs');
+
+    const bubble = document.createElement('div');
+    bubble.className = 'bubble';
+    const meta = document.createElement('div');
+    meta.className = 'meta';
+    const who = document.createElement('b');
+    who.textContent = mine ? 'You' : m.user;
+    const time = document.createElement('time');
+    time.textContent = new Date(m.sentAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+    meta.append(who, time);
+    const text = document.createElement('p');
+    text.textContent = m.text;
+    bubble.append(meta, text);
+
+    wrap.append(avatar(m.user), bubble);
+    appendToLog(wrap, mine);
+  }
+  function notice(text) {
+    const n = document.createElement('div');
+    n.className = 'notice';
+    n.textContent = text;
+    appendToLog(n, false);
+  }
+  function renderOnline(users) {
+    $('onlineCount').textContent = users.length;
+    const list = $('onlineList');
+    list.replaceChildren(...users.map(u => {
+      const li = document.createElement('li');
+      const name = document.createElement('span');
+      name.className = 'name';
+      name.textContent = u === me ? `${u} (you)` : u;
+      li.append(avatar(u), name);
+      li.title = u;
+      return li;
+    }));
+  }
+  function renderTyping() {
+    const names = [...typers.keys()];
+    $('typing').hidden = names.length === 0;
+    $('typingText').textContent =
+      names.length === 1 ? `${names[0]} is typing` :
+      names.length === 2 ? `${names[0]} and ${names[1]} are typing` :
+      names.length > 2 ? 'Several people are typing' : '';
+  }
+
+  // ---------- server events ----------
+  conn.on('ReceiveMessage', addMessage);
+  conn.on('PresenceChanged', users => {
+    if (prevUsers) {
+      users.filter(u => !prevUsers.includes(u) && u !== me).forEach(u => notice(`${u} joined`));
+      prevUsers.filter(u => !users.includes(u)).forEach(u => notice(`${u} left`));
     }
+    prevUsers = users;
+    renderOnline(users);
+  });
+  conn.on('UserTyping', name => {
+    if (name === me) return;
+    clearTimeout(typers.get(name));
+    typers.set(name, setTimeout(() => { typers.delete(name); renderTyping(); }, 1800));
+    renderTyping();
+  });
+  conn.onreconnecting(() => setStatus('reconnecting', 'Reconnecting'));
+  conn.onreconnected(async () => {
+    try { await conn.invoke('JoinRoom', room, me); setStatus('online', 'Connected'); }
+    catch { setStatus('offline', 'Disconnected'); }
+  });
+  conn.onclose(() => {
+    if (!$('chat').hidden) {
+      setStatus('offline', 'Disconnected');
+      toast('Connection lost. Leave the room and join again.');
+    }
+  });
 
-    conn.on("ReceiveMessage", addMessage);
-    conn.on("PresenceChanged", users => $("online").textContent = "Online: " + users.join(", "));
-    conn.on("UserTyping", name => {
-      $("typing").textContent = `${name} is typing...`;
-      clearTimeout(typingTimer);
-      typingTimer = setTimeout(() => $("typing").textContent = "", 1500);
-    });
-    conn.onreconnected(() => conn.invoke("JoinRoom", room, user));
+  // ---------- join / leave ----------
+  $('joinForm').addEventListener('submit', async e => {
+    e.preventDefault();
+    const name = $('nick').value.trim();
+    const r = $('roomInput').value.trim().toLowerCase().replace(/[^a-z0-9_-]/g, '');
+    $('joinError').textContent = '';
+    if (!name || !r) { $('joinError').textContent = 'Enter a nickname and a room name (letters, numbers, - and _).'; return; }
 
-    $("join").onclick = async () => {
-      user = $("user").value.trim(); room = $("room").value.trim();
-      if (!user || !room) return;
+    const btn = $('joinBtn');
+    btn.disabled = true; btn.textContent = 'Connecting...';
+    try {
       if (conn.state === signalR.HubConnectionState.Disconnected) await conn.start();
-      $("messages").innerHTML = "";
-      const history = await (await fetch(`/api/rooms/${room}/messages`)).json();
-      history.forEach(addMessage);
-      await conn.invoke("JoinRoom", room, user);
-      $("text").disabled = false;
-    };
+      seen.clear(); typers.clear(); prevUsers = null;
+      $('log').replaceChildren(makeEmpty());
+      const res = await fetch(`/api/rooms/${encodeURIComponent(r)}/messages`);
+      if (!res.ok) throw new Error('history');
+      me = name; room = r;
+      (await res.json()).forEach(addMessage);
+      await conn.invoke('JoinRoom', room, me);
 
-    $("text").addEventListener("keydown", async e => {
-      if (e.key === "Enter" && $("text").value.trim()) {
-        await conn.invoke("SendMessage", room, user, $("text").value);
-        $("text").value = "";
-      } else if (Date.now() - lastTyping > 1000) {
-        lastTyping = Date.now();
-        conn.invoke("Typing", room, user);
-      }
-    });
-  </script>
+      $('roomTitle').textContent = '#' + room;
+      setStatus('online', 'Connected');
+      renderTyping();
+      $('join').hidden = true;
+      $('chat').hidden = false;
+      $('log').scrollTop = $('log').scrollHeight;
+      $('msgInput').focus();
+    } catch {
+      $('joinError').textContent = 'Could not connect. The server may be waking up, so try again in a few seconds.';
+      try { await conn.stop(); } catch {}
+    } finally {
+      btn.disabled = false; btn.textContent = 'Join room';
+    }
+  });
+
+  function makeEmpty() {
+    const d = document.createElement('div');
+    d.id = 'empty'; d.className = 'empty';
+    d.innerHTML = '<strong>No messages yet</strong>Say hi to start the conversation.';
+    return d;
+  }
+
+  $('leaveBtn').onclick = async () => {
+    try { await conn.stop(); } catch {}
+    $('chat').hidden = true;
+    $('join').hidden = false;
+    $('msgInput').value = '';
+    $('joinBtn').focus();
+  };
+
+  // ---------- sending ----------
+  $('composer').addEventListener('submit', async e => {
+    e.preventDefault();
+    const text = $('msgInput').value.trim();
+    if (!text) return;
+    $('msgInput').value = '';
+    updateCounter();
+    try { await conn.invoke('SendMessage', room, me, text); }
+    catch { $('msgInput').value = text; updateCounter(); toast('Message not sent. Check your connection and try again.'); }
+  });
+
+  function updateCounter() {
+    const left = MAX - $('msgInput').value.length;
+    $('counter').hidden = left > 80;
+    $('counter').textContent = left;
+  }
+  $('msgInput').addEventListener('input', () => {
+    updateCounter();
+    if (Date.now() - lastTyping > 1000) {
+      lastTyping = Date.now();
+      conn.invoke('Typing', room, me).catch(() => {});
+    }
+  });
+})();
+</script>
 </body>
-<footer style="margin-top:2rem;color:#666;font-size:.9rem">
-  Portfolio project by Raghava ·
-  <a href="https://github.com/raghava503/ChatApp">Source on GitHub</a>
-</footer>
 </html>
