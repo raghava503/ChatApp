@@ -13,7 +13,7 @@
 ![Tests](https://img.shields.io/badge/tests-xUnit-success)
 ![Azure](https://img.shields.io/badge/hosted%20on-Azure-0078D4?logo=microsoftazure&logoColor=white)
 
-**[🚀 Live Demo](chat-app-bvgbfcdtfcbncjfu.malaysiawest-01.azurewebsites.net)** · **[🎬 Demo GIF](#-see-it-in-action)** · **[🧠 Design Decisions](#-design-decisions)**
+**[🚀 Live Demo](https://chat-app-bvgbfcdtfcbncjfu.malaysiawest-01.azurewebsites.net/)** · **[🎬 Demo GIF](#-see-it-in-action)** · **[🧠 Design Decisions](#-design-decisions)**
 
 </div>
 
