@@ -7,6 +7,7 @@
 *Type a message. Watch it land on someone else's screen before you blink.*
 
 ![CI](https://github.com/raghava503/ChatApp/actions/workflows/ci.yml/badge.svg)
+
 ![.NET](https://img.shields.io/badge/.NET-ASP.NET%20Core-512BD4?logo=dotnet&logoColor=white)
 ![SignalR](https://img.shields.io/badge/SignalR-WebSockets-00A4EF)
 ![EF Core](https://img.shields.io/badge/EF%20Core-SQLite-green)
