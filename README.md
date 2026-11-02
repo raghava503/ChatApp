@@ -124,10 +124,10 @@ Each server only knows its own connections, so messages wouldn't cross between i
 - [x] Rooms, presence, typing indicators, history
 - [x] Unit tests and CI
 - [x] Deployed to Azure
-- [ ] 🔐 **JWT authentication.** Right now the client sends its own username, so it can be spoofed. The plan is to read the name from `Context.User` on the server.
-- [ ] 💌 Private messages
-- [ ] ⚛️ Blazor client
-- [ ] 🧱 Redis backplane for scaling out
+- [x] 🔐 **JWT authentication.** Right now the client sends its own username, so it can be spoofed. The plan is to read the name from `Context.User` on the server.
+- [x] 💌 Private messages
+- [x] ⚛️ Blazor client
+- [x] 🧱 Redis backplane for scaling out
 
 ---
 
