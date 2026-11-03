@@ -3,8 +3,8 @@ using System.Text.RegularExpressions;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.EntityFrameworkCore;
+//using ChatApp.Data;
 using ChatApp.Data;
-
 var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddSignalR();
 var cs = builder.Configuration.GetConnectionString("Chat") ?? "Data Source=chat.db";
